@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lowe's IT Sox Audit Tool</title>
+    
+    <!-- Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --lowes-blue: #004990;
+            --lowes-light-blue: #0066b2;
+            --lowes-red: #cc0000;
+            --lowes-gray: #58585b;
+            --lowes-light-gray: #f5f5f5;
+            --success-green: #00833e;
+            --warning-orange: #ff6b35;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0a1929 0%, #004990 50%, #0066b2 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            min-height: 100vh;
+            color: var(--lowes-gray);
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(0, 73, 144, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(0, 102, 178, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(0, 131, 62, 0.2) 0%, transparent 40%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            position: relative;
+            z-index: 10;
+            border-bottom: 2px solid rgba(0, 73, 144, 0.1);
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--lowes-blue), var(--lowes-light-blue), var(--success-green));
+            animation: shimmer 3s linear infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .logo {
+            height: 50px;
+            width: auto;
+            object-fit: contain;
+            transition: transform 0.3s ease;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+            margin-right: 2rem;
+        }
+
+        .logo:hover {
+            transform: scale(1.05);
+        }
+
+        .header-title {
+            color: var(--lowes-blue);
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--lowes-blue), var(--lowes-light-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.5px;
+            position: relative;
+        }
+
+        .header-title::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--lowes-blue), transparent);
+            border-radius: 2px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .upload-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            margin-bottom: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transform: translateY(0);
+            transition: all 0.3s ease;
+            animation: fadeInUp 0.6s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .upload-section:hover {
+            box-shadow: 0 25px 70px rgba(0, 73, 144, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .upload-area {
+            border: 3px dashed var(--lowes-light-blue);
+            border-radius: 16px;
+            padding: 3.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(135deg, rgba(0, 73, 144, 0.02) 0%, rgba(0, 102, 178, 0.05) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(0, 102, 178, 0.1) 0%, transparent 70%);
+            transform: scale(0);
+            transition: transform 0.6s ease;
+        }
+
+        .upload-area:hover::before {
+            transform: scale(1);
+        }
+
+        .upload-area:hover {
+            border-color: var(--lowes-blue);
+            background: linear-gradient(135deg, rgba(0, 73, 144, 0.05) 0%, rgba(0, 102, 178, 0.1) 100%);
+            transform: scale(1.01);
+            box-shadow: 0 10px 40px rgba(0, 73, 144, 0.15);
+        }
+
+        .upload-area.dragover {
+            border-color: var(--success-green);
+            background: linear-gradient(135deg, rgba(0, 131, 62, 0.05) 0%, rgba(0, 168, 78, 0.1) 100%);
+            transform: scale(1.02);
+            box-shadow: 0 15px 50px rgba(0, 131, 62, 0.2);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: var(--lowes-light-blue);
+            margin-bottom: 1.5rem;
+            display: inline-block;
+            animation: float 3s ease-in-out infinite;
+            filter: drop-shadow(0 4px 8px rgba(0, 102, 178, 0.3));
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            color: var(--lowes-gray);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            padding: 0.875rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn span {
+            position: relative;
+            z-index: 1;
+            transition: transform 0.3s ease;
+        }
+
+        .btn:hover span {
+            transform: scale(1.2) rotate(10deg);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--lowes-blue) 0%, var(--lowes-light-blue) 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, var(--lowes-light-blue) 0%, var(--lowes-blue) 100%);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 73, 144, 0.4);
+        }
+
+        .btn-primary:disabled {
+            background: linear-gradient(135deg, #ccc 0%, #999 100%);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success-green) 0%, #00a84e 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: linear-gradient(135deg, #00a84e 0%, var(--success-green) 100%);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 131, 62, 0.4);
+        }
+
+        .actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid var(--lowes-blue);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            animation: fadeInUp 0.6s ease;
+            animation-fill-mode: both;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(0, 73, 144, 0.03) 0%, transparent 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 50px rgba(0, 73, 144, 0.2);
+        }
+
+        .stat-card:nth-child(1) { animation-delay: 0.1s; }
+        .stat-card:nth-child(2) { animation-delay: 0.2s; }
+        .stat-card:nth-child(3) { animation-delay: 0.3s; }
+        .stat-card:nth-child(4) { animation-delay: 0.4s; }
+
+        .stat-card.success {
+            border-left-color: var(--success-green);
+        }
+
+        .stat-card.warning {
+            border-left-color: var(--warning-orange);
+        }
+
+        .stat-card.danger {
+            border-left-color: var(--lowes-red);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--lowes-gray);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--lowes-blue), var(--lowes-light-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: countUp 1s ease;
+        }
+
+        @keyframes countUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .charts-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: fadeInUp 0.8s ease;
+            border: 1px solid rgba(0, 73, 144, 0.1);
+        }
+
+        .chart-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 50px rgba(0, 73, 144, 0.15);
+        }
+
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--lowes-blue), var(--lowes-light-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1.5rem;
+            position: relative;
+            padding-bottom: 0.75rem;
+        }
+
+        .chart-title::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 50px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--lowes-blue), transparent);
+            border-radius: 2px;
+        }
+
+        .results-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 2.5rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            animation: fadeInUp 1s ease;
+            border: 1px solid rgba(0, 73, 144, 0.1);
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background: linear-gradient(135deg, var(--lowes-blue) 0%, var(--lowes-light-blue) 100%);
+            color: white;
+            padding: 1.25rem 1rem;
+            text-align: left;
+            font-weight: 600;
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.75rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        th:first-child {
+            border-top-left-radius: 12px;
+        }
+
+        th:last-child {
+            border-top-right-radius: 12px;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(0, 73, 144, 0.08);
+            transition: all 0.3s ease;
+        }
+
+        tr {
+            transition: all 0.3s ease;
+        }
+
+        tbody tr:hover {
+            background: linear-gradient(90deg, rgba(0, 73, 144, 0.03) 0%, rgba(0, 102, 178, 0.05) 100%);
+            transform: scale(1.01);
+            box-shadow: 0 4px 12px rgba(0, 73, 144, 0.08);
+        }
+
+        tbody tr {
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .badge {
+            padding: 0.4rem 0.9rem;
+            border-radius: 25px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            display: inline-block;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .badge:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .badge-success {
+            background: linear-gradient(135deg, var(--success-green), #00a84e);
+            color: white;
+        }
+
+        .badge-danger {
+            background: linear-gradient(135deg, var(--lowes-red), #ff3333);
+            color: white;
+        }
+
+        .badge-info {
+            background: linear-gradient(135deg, #0c5460, #17a2b8);
+            color: white;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            animation: fadeInUp 0.5s ease;
+        }
+
+        .spinner {
+            border: 5px solid rgba(255, 255, 255, 0.2);
+            border-top: 5px solid white;
+            border-radius: 50%;
+            width: 70px;
+            height: 70px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .file-list {
+            margin-top: 1.5rem;
+        }
+
+        .file-item {
+            background: linear-gradient(135deg, rgba(0, 73, 144, 0.05) 0%, rgba(0, 102, 178, 0.08) 100%);
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(0, 73, 144, 0.1);
+            animation: slideInRight 0.4s ease;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .file-item:hover {
+            background: linear-gradient(135deg, rgba(0, 73, 144, 0.08) 0%, rgba(0, 102, 178, 0.12) 100%);
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0, 73, 144, 0.15);
+        }
+
+        .remove-file {
+            color: var(--lowes-red);
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(204, 0, 0, 0.1);
+        }
+
+        .remove-file:hover {
+            background: var(--lowes-red);
+            color: white;
+            transform: rotate(90deg) scale(1.2);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1rem;
+            }
+
+            .charts-section {
+                grid-template-columns: 1fr;
+            }
+
+            .analytics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 0.8rem;
+            }
+
+            th, td {
+                padding: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="https://www.lowescdn.com/images/logos/Lowes_logo_pms_280.png" alt="Lowe's Logo" class="logo">
+        <div class="header-title">IncidentIQ</div>
+    </div>
+
+    <div class="container">
+        <div class="upload-section">
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📄</div>
+                <div class="upload-text">Drop PDF files here or click to browse</div>
+                <div style="color: #999; font-size: 0.9rem; margin-top: 0.5rem;">Supports multiple PDF uploads</div>
+            </div>
+            <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple>
+            <div class="file-list" id="fileList"></div>
+            <div class="actions">
+                <button class="btn btn-primary" id="processBtn" disabled>
+                    <span>🔍</span> Process Tickets
+                </button>
+                <button class="btn btn-success hidden" id="exportBtn">
+                    <span>📊</span> Export to Excel
+                </button>
+            </div>
+        </div>
+
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <div>Processing incident tickets...</div>
+        </div>
+
+        <div id="analytics" class="hidden">
+            <div class="analytics-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Tickets</div>
+                    <div class="stat-value" id="totalTickets">0</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-label">Timely Closed</div>
+                    <div class="stat-value" id="timelyTickets">0</div>
+                </div>
+                <div class="stat-card danger">
+                    <div class="stat-label">Delayed Closure</div>
+                    <div class="stat-value" id="delayedTickets">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Avg Resolution Time</div>
+                    <div class="stat-value" id="avgResolution">0h</div>
+                </div>
+            </div>
+
+            <div class="charts-section">
+                <div class="chart-card">
+                    <div class="chart-title">Resolution Status</div>
+                    <canvas id="statusChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">Resolution Time Distribution</div>
+                    <canvas id="timeChart"></canvas>
+                </div>
+            </div>
+
+            <div class="results-section">
+                <h2 style="color: var(--lowes-blue); margin-bottom: 1rem;">Incident Tickets Details</h2>
+                <div class="table-wrapper">
+                    <table id="resultsTable">
+                        <thead>
+                            <tr>
+                                <th>Ticket Number</th>
+                                <th>Ticket Name/Description</th>
+                                <th>Created Date Time</th>
+                                <th>Resolved Date Time</th>
+                                <th>Resolution Time</th>
+                                <th>Timely Resolution?</th>
+                                <th>Status</th>
+                                <th>Comments</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        let uploadedFiles = [];
+        let processedData = [];
+        let charts = {};
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const processBtn = document.getElementById('processBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const loading = document.getElementById('loading');
+        const analytics = document.getElementById('analytics');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            const pdfFiles = Array.from(files).filter(f => f.type === 'application/pdf');
+            uploadedFiles = [...uploadedFiles, ...pdfFiles];
+            updateFileList();
+            processBtn.disabled = uploadedFiles.length === 0;
+        }
+
+        function updateFileList() {
+            fileList.innerHTML = uploadedFiles.map((file, idx) => `
+                <div class="file-item">
+                    <span>📄 ${file.name}</span>
+                    <span class="remove-file" onclick="removeFile(${idx})">✕</span>
+                </div>
+            `).join('');
+        }
+
+        function removeFile(idx) {
+            uploadedFiles.splice(idx, 1);
+            updateFileList();
+            processBtn.disabled = uploadedFiles.length === 0;
+        }
+
+        processBtn.addEventListener('click', async () => {
+            loading.classList.remove('hidden');
+            analytics.classList.add('hidden');
+            processedData = [];
+
+            for (const file of uploadedFiles) {
+                const data = await extractPDFData(file);
+                if (data) processedData.push(data);
+            }
+
+            loading.classList.add('hidden');
+            if (processedData.length > 0) {
+                displayResults();
+                exportBtn.classList.remove('hidden');
+            }
+        });
+
+        async function extractPDFData(file) {
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                let fullText = '';
+
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const content = await page.getTextContent();
+                    fullText += content.items.map(item => item.str).join(' ') + ' ';
+                }
+
+                return parseIncidentData(fullText);
+            } catch (error) {
+                console.error('PDF extraction error:', error);
+                return null;
+            }
+        }
+
+        function parseIncidentData(text) {
+            const ticketMatch = text.match(/INC\d{12}/);
+            const ticketNumber = ticketMatch ? ticketMatch[0] : 'Unknown';
+
+            const titleMatch = text.match(/INC\d{12}\s+\w+\s+(.+?)(?:Created|$)/);
+            const ticketName = titleMatch ? titleMatch[1].trim().substring(0, 100) : 'No description';
+
+            const createdMatch = text.match(/Created\s+(\d{2}\/\d{2}\/\d{4}\s+\d{1,2}:\d{2}:\d{2}\s+[AP]M)/);
+            const createdDate = createdMatch ? new Date(createdMatch[1]) : null;
+
+            const achievedMatch = text.match(/Achieved\s+(\d{2}\/\d{2}\/\d{4}\s+\d{1,2}:\d{2}:\d{2}\s+[AP]M)/);
+            const resolvedDate = achievedMatch ? new Date(achievedMatch[1]) : null;
+
+            const statusMatch = text.match(/Status\s+(Closed|Resolved|In Progress|New)/i);
+            const status = statusMatch ? statusMatch[1] : 'Unknown';
+
+            const resolutionMatch = text.match(/Resolution note\s+(.+?)(?:Achieved|Related|Customer|$)/s);
+            let comments = resolutionMatch ? resolutionMatch[1].trim() : '';
+            
+            if (!comments || comments === 'Incident has been automatically resolved via Vanguard') {
+                const assignedMatch = text.match(/Assigned to\s+([^\n]+)/);
+                if (assignedMatch) comments = `Assigned to: ${assignedMatch[1].trim()}`;
+            }
+
+            let resolutionTime = null;
+            let resolutionHours = 0;
+            let timelyResolution = 'N/A';
+
+            if (createdDate && resolvedDate) {
+                resolutionTime = resolvedDate - createdDate;
+                resolutionHours = resolutionTime / (1000 * 60 * 60);
+                
+                const slaHours = 48;
+                timelyResolution = resolutionHours <= slaHours ? 'YES' : 'NO';
+            }
+
+            return {
+                ticketNumber,
+                ticketName,
+                createdDate: createdDate ? formatDateTime(createdDate) : 'Unknown',
+                resolvedDate: resolvedDate ? formatDateTime(resolvedDate) : 'Not Resolved',
+                resolutionTimeDisplay: resolutionHours > 0 ? formatDuration(resolutionHours) : 'N/A',
+                resolutionHours,
+                timelyResolution,
+                status,
+                comments: comments.substring(0, 200) || 'No comments'
+            };
+        }
+
+        function formatDateTime(date) {
+            return date.toLocaleString('en-US', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
+        }
+
+        function formatDuration(hours) {
+            if (hours < 1) return `${Math.round(hours * 60)}m`;
+            if (hours < 24) return `${hours.toFixed(1)}h`;
+            const days = Math.floor(hours / 24);
+            const remainingHours = Math.floor(hours % 24);
+            return `${days}d ${remainingHours}h`;
+        }
+
+        function displayResults() {
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = processedData.map(ticket => `
+                <tr>
+                    <td><strong>${ticket.ticketNumber}</strong></td>
+                    <td>${ticket.ticketName}</td>
+                    <td>${ticket.createdDate}</td>
+                    <td>${ticket.resolvedDate}</td>
+                    <td>${ticket.resolutionTimeDisplay}</td>
+                    <td>
+                        <span class="badge ${ticket.timelyResolution === 'YES' ? 'badge-success' : ticket.timelyResolution === 'NO' ? 'badge-danger' : 'badge-info'}">
+                            ${ticket.timelyResolution}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge ${ticket.status === 'Closed' ? 'badge-success' : 'badge-info'}">
+                            ${ticket.status}
+                        </span>
+                    </td>
+                    <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">${ticket.comments}</td>
+                </tr>
+            `).join('');
+
+            updateStatistics();
+            createCharts();
+            analytics.classList.remove('hidden');
+        }
+
+        function updateStatistics() {
+            const total = processedData.length;
+            const timely = processedData.filter(t => t.timelyResolution === 'YES').length;
+            const delayed = processedData.filter(t => t.timelyResolution === 'NO').length;
+            
+            const totalHours = processedData.reduce((sum, t) => sum + (t.resolutionHours || 0), 0);
+            const validTickets = processedData.filter(t => t.resolutionHours > 0).length;
+            const avgHours = validTickets > 0 ? totalHours / validTickets : 0;
+
+            document.getElementById('totalTickets').textContent = total;
+            document.getElementById('timelyTickets').textContent = timely;
+            document.getElementById('delayedTickets').textContent = delayed;
+            document.getElementById('avgResolution').textContent = formatDuration(avgHours);
+        }
+
+        function createCharts() {
+            if (charts.statusChart) charts.statusChart.destroy();
+            if (charts.timeChart) charts.timeChart.destroy();
+
+            const timely = processedData.filter(t => t.timelyResolution === 'YES').length;
+            const delayed = processedData.filter(t => t.timelyResolution === 'NO').length;
+            const na = processedData.filter(t => t.timelyResolution === 'N/A').length;
+
+            const statusCtx = document.getElementById('statusChart').getContext('2d');
+            charts.statusChart = new Chart(statusCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Timely', 'Delayed', 'N/A'],
+                    datasets: [{
+                        data: [timely, delayed, na],
+                        backgroundColor: ['#00833e', '#cc0000', '#58585b']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            const timeRanges = {
+                '< 1h': 0, '1-6h': 0, '6-12h': 0, '12-24h': 0, '1-2d': 0, '> 2d': 0
+            };
+
+            processedData.forEach(t => {
+                const h = t.resolutionHours;
+                if (h === 0) return;
+                if (h < 1) timeRanges['< 1h']++;
+                else if (h <= 6) timeRanges['1-6h']++;
+                else if (h <= 12) timeRanges['6-12h']++;
+                else if (h <= 24) timeRanges['12-24h']++;
+                else if (h <= 48) timeRanges['1-2d']++;
+                else timeRanges['> 2d']++;
+            });
+
+            const timeCtx = document.getElementById('timeChart').getContext('2d');
+            charts.timeChart = new Chart(timeCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(timeRanges),
+                    datasets: [{
+                        label: 'Number of Tickets',
+                        data: Object.values(timeRanges),
+                        backgroundColor: '#004990'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    }
+                }
+            });
+        }
+
+        exportBtn.addEventListener('click', () => {
+            const ws = XLSX.utils.json_to_sheet(processedData.map(t => ({
+                'Ticket Number': t.ticketNumber,
+                'Ticket Name/Description': t.ticketName,
+                'Created Date Time': t.createdDate,
+                'Resolved Date Time': t.resolvedDate,
+                'Resolution Time': t.resolutionTimeDisplay,
+                'Timely Resolution?': t.timelyResolution,
+                'Status': t.status,
+                'Comments': t.comments
+            })));
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Incident Audit');
+            
+            const timestamp = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(wb, `Lowes_Sox_Audit_${timestamp}.xlsx`);
+        });
+    </script>
+</body>
+</html>
